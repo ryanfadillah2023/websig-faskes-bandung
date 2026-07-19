@@ -1,0 +1,21 @@
+# dependencies & build
+node_modules/
+dist/
+__pycache__/
+
+# secrets — JANGAN commit
+.env
+.env.*
+*/.env
+*/.env.*
+
+# deliverables besar (bukan kode)
+*.docx
+*.pptx
+*.ipynb
+*.png
+*.pdf
+
+# arsip/backup
+*(backup)*
+*backup*
