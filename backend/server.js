@@ -28,8 +28,8 @@ const CORS_ORIGIN = (process.env.CORS_ORIGIN || "http://localhost:5173")
   .split(",")
   .map((s) => s.trim());
 
-// CORS dibatasi ke origin frontend saja (bukan "*")
-app.use(cors({ origin: CORS_ORIGIN }));
+// CORS dibatasi ke origin frontend. Bila CORS_ORIGIN memuat "*", izinkan semua (sementara).
+app.use(cors({ origin: CORS_ORIGIN.includes("*") ? true : CORS_ORIGIN }));
 app.use(express.json());
 
 // Middleware: wajib token JWT valid di header Authorization: Bearer <token>
