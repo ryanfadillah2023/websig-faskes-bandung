@@ -45,23 +45,24 @@ function requireAuth(req, res, next) {
   }
 }
 
-// Batasi percobaan login (anti brute-force): maks 10 per 15 menit per IP
+// Batasi percobaan login (anti brute-force): maks 10 per 15 menit per IP.
+// Di serverless req.ip kosong -> ambil IP dari header (Netlify/proxy).
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
+  keyGenerator: (req) =>
+    req.headers["x-nf-client-connection-ip"] ||
+    (req.headers["x-forwarded-for"] || "").split(",")[0].trim() ||
+    req.ip ||
+    "global",
   message: { error: "Terlalu banyak percobaan login. Coba lagi nanti." },
 });
 
-// Penyimpanan jawaban captcha (di memori, sekali pakai, kedaluwarsa 5 menit)
-const captchaStore = new Map();
-setInterval(() => {
-  const now = Date.now();
-  for (const [id, v] of captchaStore) if (v.exp < now) captchaStore.delete(id);
-}, 60 * 1000);
-
-// GET /api/captcha -> gambar captcha (SVG) + challengeId; jawaban disimpan di server
+// CAPTCHA stateless: jawaban ditandatangani dalam JWT singkat (cocok untuk serverless)
+// GET /api/captcha -> { token, svg }
 app.get("/api/captcha", (req, res) => {
   const c = svgCaptcha.create({
     size: 5,
@@ -69,25 +70,26 @@ app.get("/api/captcha", (req, res) => {
     color: true,
     ignoreChars: "0o1ilI",
   });
-  const id = crypto.randomBytes(16).toString("hex");
-  captchaStore.set(id, { text: c.text.toLowerCase(), exp: Date.now() + 5 * 60 * 1000 });
-  res.json({ challengeId: id, svg: c.data });
+  const token = jwt.sign({ cap: c.text.toLowerCase() }, JWT_SECRET, {
+    expiresIn: "5m",
+  });
+  res.json({ token, svg: c.data });
 });
 
-// POST /api/login -> cek kredensial, kembalikan token JWT (berlaku 8 jam)
+// POST /api/login -> verifikasi captcha (via token) lalu kredensial. Token JWT berlaku 8 jam.
 app.post("/api/login", loginLimiter, async (req, res) => {
   try {
-    const { username, password, challengeId, captcha } = req.body || {};
+    const { username, password, captchaToken, captcha } = req.body || {};
 
-    // 1) Verifikasi captcha lebih dulu (sekali pakai, cek kedaluwarsa)
-    const ch = captchaStore.get(challengeId);
-    captchaStore.delete(challengeId); // sekali pakai, walau salah
-    if (
-      !ch ||
-      ch.exp < Date.now() ||
-      !captcha ||
-      String(captcha).toLowerCase() !== ch.text
-    ) {
+    // 1) Verifikasi captcha dari token (stateless, kedaluwarsa 5 menit)
+    let capOk = false;
+    try {
+      const decoded = jwt.verify(captchaToken, JWT_SECRET);
+      capOk = !!decoded.cap && String(captcha || "").toLowerCase() === decoded.cap;
+    } catch {
+      capOk = false;
+    }
+    if (!capOk) {
       return res.status(400).json({ error: "Captcha salah atau kedaluwarsa." });
     }
 
@@ -406,6 +408,12 @@ app.delete("/api/faskes/:id", requireAuth, async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`WebSIG API jalan di http://localhost:${PORT}`);
-});
+// Jalankan server hanya bila file dieksekusi langsung (mode lokal).
+// Di serverless (Netlify Functions), app diekspor & dipanggil sebagai handler.
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`WebSIG API jalan di http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;

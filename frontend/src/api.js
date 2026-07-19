@@ -9,7 +9,7 @@ function authHeader() {
   return t ? { Authorization: `Bearer ${t}` } : {};
 }
 
-// Ambil captcha baru -> { challengeId, svg }
+// Ambil captcha baru -> { token, svg }
 export async function getCaptcha() {
   const r = await fetch(`${BASE}/api/captcha`);
   if (!r.ok) throw new Error("Gagal memuat captcha");
@@ -17,11 +17,11 @@ export async function getCaptcha() {
 }
 
 // Login ke backend -> kembalikan { token }
-export async function loginRequest(username, password, challengeId, captcha) {
+export async function loginRequest(username, password, captchaToken, captcha) {
   const r = await fetch(`${BASE}/api/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password, challengeId, captcha }),
+    body: JSON.stringify({ username, password, captchaToken, captcha }),
   });
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || "Login gagal");

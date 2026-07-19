@@ -8,7 +8,7 @@ export default function AdminLogin() {
   const [password, setPassword] = useState("");
   const [captcha, setCaptcha] = useState("");
   const [captchaSvg, setCaptchaSvg] = useState("");
-  const [challengeId, setChallengeId] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -16,8 +16,8 @@ export default function AdminLogin() {
   async function loadCaptcha() {
     setCaptcha("");
     try {
-      const { challengeId, svg } = await getCaptcha();
-      setChallengeId(challengeId);
+      const { token, svg } = await getCaptcha();
+      setCaptchaToken(token);
       setCaptchaSvg(svg);
     } catch {
       setCaptchaSvg("");
@@ -33,7 +33,7 @@ export default function AdminLogin() {
     setErr("");
     setLoading(true);
     try {
-      await login(username, password, challengeId, captcha);
+      await login(username, password, captchaToken, captcha);
       navigate("/admin", { replace: true });
     } catch (e) {
       setErr(e.message || "Login gagal.");

@@ -5,8 +5,8 @@ import { loginRequest } from "./api.js";
 const KEY = "websig_token";
 
 // Login: minta token ke backend, simpan bila berhasil. Throw bila gagal.
-export async function login(username, password, challengeId, captcha) {
-  const { token } = await loginRequest(username, password, challengeId, captcha);
+export async function login(username, password, captchaToken, captcha) {
+  const { token } = await loginRequest(username, password, captchaToken, captcha);
   sessionStorage.setItem(KEY, token);
   return true;
 }
